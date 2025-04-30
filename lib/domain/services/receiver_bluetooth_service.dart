@@ -4,9 +4,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xsaev/data/models/user.dart';
 
 class ReceiverBluetoothService {
-  final String serviceUuid = "12345678-1234-5678-1234-56789abcdef0";
-  final String characteristicUuid = "abcdef01-1234-5678-1234-56789abcdef0";
+  // final String serviceUuid = "12345678-1234-5678-1234-56789abcdef0";
+  // final String characteristicUuid = "abcdef01-1234-5678-1234-56789abcdef0";
 
+  final String serviceUuid = "12345678-1234-1234-1234-1234567890ab";
+  final String characteristicUuid = "abcd1234-5678-90ab-cdef-1234567890ab";
+
+  // ignore: unused_field
   BluetoothCharacteristic? _rxChar;
   BluetoothDevice? _connectedDevice;
 

@@ -1,15 +1,19 @@
 import 'dart:convert';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xsaev/data/models/user.dart';
 
 class BluetoothTransferService {
   final String serviceUUID = "12345678-1234-1234-1234-1234567890ab";
   final String characteristicUUID = "abcd1234-5678-90ab-cdef-1234567890ab";
 
   Future<void> sendPaymentOverBluetooth(
-      String recipientAccount, double amount) async {
+    String recipientAccount,
+    double amount,
+  ) async {
     try {
       // Scan for device
-      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
+      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 10));
       BluetoothDevice? targetDevice;
 
       // await for (ScanResult result in FlutterBluePlus.scanResults) {
@@ -48,6 +52,10 @@ class BluetoothTransferService {
                 "amount": amount,
               });
               await c.write(utf8.encode(payload));
+
+              // ✅ Update local balance
+              await _updateWalletBalance(amount);
+
               await targetDevice!.disconnect();
               return;
             }
@@ -59,5 +67,15 @@ class BluetoothTransferService {
     } catch (e) {
       print("Bluetooth error: $e");
     }
+  }
+
+  Future<void> _updateWalletBalance(double amount) async {
+    final prefs = await SharedPreferences.getInstance();
+    final userJson = prefs.getString('userData');
+    if (userJson == null) return;
+
+    final user = AppUser.fromJson(jsonDecode(userJson));
+    final updatedUser = user.copyWith(balance: user.balance + amount);
+    await prefs.setString('userData', jsonEncode(updatedUser.toJson()));
   }
 }
