@@ -34,12 +34,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFF2196F3);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Transaction History"),
-        backgroundColor: primaryColor,
       ),
       body: transactions.isEmpty
           ? const Center(child: Text("No transactions yet."))
@@ -67,7 +64,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     subtitle: Text(tx.timestamp.toString().substring(0, 10)),
                     trailing: Text(
                       '\$${tx.amount.toStringAsFixed(2)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                 );

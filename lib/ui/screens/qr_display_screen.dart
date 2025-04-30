@@ -20,7 +20,13 @@ class QrDisplayScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Your QR Code'),
+        leading: IconButton(
+          onPressed: () => Navigator.pushNamed(context, '/home'),
+          icon: const Icon(
+            Icons.arrow_back,
+          ),
+        ),
+        title: const Text('Generated Code'),
         backgroundColor: const Color(0xFF2196F3),
       ),
       body: Padding(
@@ -57,7 +63,7 @@ class QrDisplayScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Price: \$${price}',
+                    'Price: \$$price',
                     style: const TextStyle(fontSize: 15),
                   ),
                   if (imagePath != null && imagePath.isNotEmpty)

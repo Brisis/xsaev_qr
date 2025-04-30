@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xsaev/core/constants.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -44,8 +45,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFF2196F3);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Login'),
@@ -90,13 +89,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   backgroundColor: primaryColor,
                   minimumSize: const Size.fromHeight(50),
                 ),
-                child: const Text('Login', style: TextStyle(fontSize: 18)),
+                child: const Text('Login',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.white,
+                    )),
               ),
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () =>
                     Navigator.pushReplacementNamed(context, '/register'),
-                child: const Text("Don't have an account? Register"),
+                child: const Text(
+                  "Don't have an account? Register",
+                ),
               ),
             ],
           ),

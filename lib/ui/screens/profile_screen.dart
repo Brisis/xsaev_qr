@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xsaev/core/constants.dart';
 import 'package:xsaev/data/models/user.dart';
+import 'package:xsaev/ui/screens/generated_codes_screen.dart';
 import 'package:xsaev/ui/screens/transaction_history_screen.dart';
 import 'package:xsaev/ui/screens/wallet_topup_screen.dart';
 
@@ -172,13 +174,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFF2196F3);
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text("My Profile"),
-        backgroundColor: primaryColor,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -219,8 +218,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               builder: (_) => const WalletTopUpScreen()));
                       await _loadUser();
                     },
-                    icon: const Icon(Icons.account_balance_wallet_outlined),
-                    label: const Text("Top Up Wallet"),
+                    icon: const Icon(
+                      Icons.account_balance_wallet_outlined,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      "Top Up Wallet",
+                      style: TextStyle(
+                        color: Colors.white,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
                       padding: const EdgeInsets.symmetric(
@@ -248,9 +255,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                   ),
                   _buildOption(
-                      icon: Icons.notifications,
-                      title: "Notifications",
-                      onTap: () {}),
+                      icon: Icons.qr_code,
+                      title: "Generated Codes",
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const GeneratedCodesScreen()),
+                        );
+                      }),
                   _buildOption(
                       icon: Icons.logout,
                       title: "Log Out",

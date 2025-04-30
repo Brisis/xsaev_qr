@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xsaev/core/constants.dart';
 import 'package:xsaev/data/models/transaction.dart';
 import 'dart:convert';
 
@@ -75,8 +76,6 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFF2196F3);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Money to Wallet'),
@@ -98,7 +97,12 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
             ElevatedButton(
               onPressed: _addMoney,
               style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
-              child: const Text('Top Up Wallet'),
+              child: const Text(
+                'Top Up Wallet',
+                style: TextStyle(
+                  color: Colors.white,
+                ),
+              ),
             ),
           ],
         ),

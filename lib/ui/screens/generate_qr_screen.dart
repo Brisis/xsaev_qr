@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xsaev/core/constants.dart';
 import 'package:xsaev/data/models/user.dart';
 import 'package:xsaev/ui/screens/qr_display_screen.dart';
 
@@ -19,8 +20,6 @@ class _GenerateQrScreenState extends State<GenerateQrScreen> {
   final _itemController = TextEditingController();
   final _priceController = TextEditingController();
   File? _selectedImage;
-
-  static const primaryColor = Color(0xFF2196F3);
 
   @override
   void initState() {
@@ -52,23 +51,29 @@ class _GenerateQrScreenState extends State<GenerateQrScreen> {
         _itemController.text.isEmpty ||
         _priceController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields')),
-      );
+          const SnackBar(content: Text('Please fill all fields')));
       return;
     }
 
-    final data = {
+    final Map<String, dynamic> data = {
       'account': _accountController.text,
       'item': _itemController.text,
       'price': _priceController.text,
       'imagePath': _selectedImage?.path ?? '',
     };
 
-    await _saveQrCodeData(data);
+    // Save to SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final existing = prefs.getStringList('generatedQrCodes') ?? [];
+    existing.add(jsonEncode(data));
+    await prefs.setStringList('generatedQrCodes', existing);
 
+    // Navigate to QR Display
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => QrDisplayScreen(data: data)),
+      MaterialPageRoute(
+        builder: (context) => QrDisplayScreen(data: data),
+      ),
     );
   }
 
@@ -87,7 +92,7 @@ class _GenerateQrScreenState extends State<GenerateQrScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Create QR Code'),
+        title: const Text('Generate Code'),
         backgroundColor: primaryColor,
       ),
       body: Padding(
@@ -122,9 +127,20 @@ class _GenerateQrScreenState extends State<GenerateQrScreen> {
             const SizedBox(height: 12),
             ElevatedButton.icon(
               onPressed: _pickImage,
-              icon: const Icon(Icons.image),
-              label: const Text('Pick Image'),
-              style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
+              icon: const Icon(
+                Icons.image,
+                color: Colors.white,
+              ),
+              label: const Text(
+                'Pick Image',
+                style: TextStyle(
+                  color: Colors.white,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                minimumSize: const Size.fromHeight(50),
+              ),
             ),
             if (_selectedImage != null)
               Padding(
@@ -134,10 +150,15 @@ class _GenerateQrScreenState extends State<GenerateQrScreen> {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _generateQR,
-              child: const Text('Generate QR Code'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryColor,
                 minimumSize: const Size.fromHeight(50),
+              ),
+              child: const Text(
+                'Generate QR Code',
+                style: TextStyle(
+                  color: Colors.white,
+                ),
               ),
             ),
           ],

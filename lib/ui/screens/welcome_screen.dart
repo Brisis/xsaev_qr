@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:xsaev/core/constants.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFF2196F3);
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -40,7 +39,11 @@ class WelcomeScreen extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text("Register", style: TextStyle(fontSize: 18)),
+                  child: const Text("Register",
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.white,
+                      )),
                 ),
                 const SizedBox(height: 16),
                 OutlinedButton(

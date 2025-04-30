@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xsaev/core/constants.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -55,8 +56,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFF2196F3);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Register'),
@@ -104,7 +103,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   backgroundColor: primaryColor,
                   minimumSize: const Size.fromHeight(50),
                 ),
-                child: const Text('Register', style: TextStyle(fontSize: 18)),
+                child: const Text('Register',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.white,
+                    )),
               ),
               const SizedBox(height: 16),
               TextButton(
