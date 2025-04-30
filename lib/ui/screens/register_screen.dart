@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,12 +17,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final passwordController = TextEditingController();
   final confirmController = TextEditingController();
 
+  String _generateAccountNumber() {
+    final rand = Random();
+    String number = '';
+    for (int i = 0; i < 11; i++) {
+      number += rand.nextInt(10).toString();
+    }
+    return number;
+  }
+
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('userName', nameController.text.trim());
-      await prefs.setString('userEmail', emailController.text.trim());
-      await prefs.setString('userPassword', passwordController.text.trim());
+      final accountNumber = _generateAccountNumber();
+
+      final user = {
+        "name": nameController.text.trim(),
+        "email": emailController.text.trim(),
+        "password": passwordController.text.trim(),
+        "accountNumber": accountNumber,
+        "balance": 0.0,
+        "transactions": [],
+        "qrCodes": []
+      };
+
+      await prefs.setString('userData', jsonEncode(user));
       await prefs.setBool('isLoggedIn', true);
 
       if (mounted) {

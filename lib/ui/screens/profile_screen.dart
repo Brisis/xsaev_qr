@@ -1,5 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xsaev/data/models/user.dart';
+import 'package:xsaev/ui/screens/transaction_history_screen.dart';
+import 'package:xsaev/ui/screens/wallet_topup_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -9,36 +13,36 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String userName = "Benevolent Mudzinganyama";
-  String userEmail = "benevolent@example.com";
+  AppUser? user;
 
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+    _loadUser();
   }
 
-  Future<void> _loadProfile() async {
+  Future<void> _loadUser() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      userName = prefs.getString('userName') ?? userName;
-      userEmail = prefs.getString('userEmail') ?? userEmail;
-    });
+    final userJson = prefs.getString('userData');
+    if (userJson != null) {
+      setState(() {
+        user = AppUser.fromJson(jsonDecode(userJson));
+      });
+    }
   }
 
-  Future<void> _updateProfile(String name, String email) async {
+  Future<void> _updateUserNameEmail(String name, String email) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('userName', name);
-    await prefs.setString('userEmail', email);
-    setState(() {
-      userName = name;
-      userEmail = email;
-    });
+    if (user != null) {
+      final updatedUser = user!.copyWith(name: name, email: email);
+      await prefs.setString('userData', jsonEncode(updatedUser.toJson()));
+      setState(() => user = updatedUser);
+    }
   }
 
   void _editProfile() {
-    final nameController = TextEditingController(text: userName);
-    final emailController = TextEditingController(text: userEmail);
+    final nameController = TextEditingController(text: user?.name ?? '');
+    final emailController = TextEditingController(text: user?.email ?? '');
 
     showDialog(
       context: context,
@@ -61,7 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: const Text("Cancel")),
           ElevatedButton(
             onPressed: () {
-              _updateProfile(nameController.text, emailController.text);
+              _updateUserNameEmail(nameController.text, emailController.text);
               Navigator.pop(context);
             },
             child: const Text("Save"),
@@ -69,14 +73,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _logout(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear(); // or remove only isLoggedIn and credentials
-    if (context.mounted) {
-      Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
-    }
   }
 
   void _confirmLogout() {
@@ -99,6 +95,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _logout(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    if (context.mounted) {
+      Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+    }
+  }
+
   void _changePassword() {
     final oldPasswordController = TextEditingController();
     final newPasswordController = TextEditingController();
@@ -112,21 +116,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              controller: oldPasswordController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: "Current Password"),
-            ),
+                obscureText: true,
+                controller: oldPasswordController,
+                decoration:
+                    const InputDecoration(labelText: "Current Password")),
             TextField(
-              controller: newPasswordController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: "New Password"),
-            ),
+                obscureText: true,
+                controller: newPasswordController,
+                decoration: const InputDecoration(labelText: "New Password")),
             TextField(
-              controller: confirmPasswordController,
-              obscureText: true,
-              decoration:
-                  const InputDecoration(labelText: "Confirm New Password"),
-            ),
+                obscureText: true,
+                controller: confirmPasswordController,
+                decoration:
+                    const InputDecoration(labelText: "Confirm New Password")),
           ],
         ),
         actions: [
@@ -158,9 +160,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _getInitials(String name) {
+    List<String> parts = name.trim().split(' ');
+    if (parts.length == 1) return parts[0][0].toUpperCase();
+    return parts[0][0].toUpperCase() + parts[1][0].toUpperCase();
   }
 
   @override
@@ -173,52 +180,85 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: const Text("My Profile"),
         backgroundColor: primaryColor,
         leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.pop(context)),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const CircleAvatar(
-              radius: 50,
-              backgroundColor: primaryColor,
-              child: Text("BM",
-                  style: TextStyle(fontSize: 32, color: Colors.white)),
-            ),
-            const SizedBox(height: 16),
-            Text(userName,
-                style:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            Text(userEmail,
-                style: const TextStyle(fontSize: 16, color: Colors.grey)),
-            const SizedBox(height: 32),
-            _buildOption(
-                icon: Icons.edit, title: "Edit Profile", onTap: _editProfile),
-            _buildOption(
-              icon: Icons.lock,
-              title: "Change Password",
-              onTap: _changePassword,
-            ),
-            _buildOption(
-                icon: Icons.payment, title: "Payment Methods", onTap: () {}),
-            _buildOption(
-                icon: Icons.history,
-                title: "Transaction History",
-                onTap: () {}),
-            _buildOption(
-                icon: Icons.notifications,
-                title: "Notifications",
-                onTap: () {}),
-            _buildOption(
-              icon: Icons.logout,
-              title: "Log Out",
-              onTap: _confirmLogout,
-              color: Colors.red,
-            ),
-          ],
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
+      body: user == null
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 50,
+                    backgroundColor: primaryColor,
+                    child: Text(_getInitials(user?.name ?? user!.email),
+                        style:
+                            const TextStyle(fontSize: 32, color: Colors.white)),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(user!.name,
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text(user!.email,
+                      style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                  const SizedBox(height: 16),
+                  Text("Account Number: ${user!.accountNumber}",
+                      style: const TextStyle(fontSize: 16)),
+                  const SizedBox(height: 4),
+                  Text("Wallet Balance: \$${user!.balance.toStringAsFixed(2)}",
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const WalletTopUpScreen()));
+                      await _loadUser();
+                    },
+                    icon: const Icon(Icons.account_balance_wallet_outlined),
+                    label: const Text("Top Up Wallet"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildOption(
+                      icon: Icons.edit,
+                      title: "Edit Profile",
+                      onTap: _editProfile),
+                  _buildOption(
+                      icon: Icons.lock,
+                      title: "Change Password",
+                      onTap: _changePassword),
+                  _buildOption(
+                    icon: Icons.history,
+                    title: "Transaction History",
+                    onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  const TransactionHistoryScreen()));
+                    },
+                  ),
+                  _buildOption(
+                      icon: Icons.notifications,
+                      title: "Notifications",
+                      onTap: () {}),
+                  _buildOption(
+                      icon: Icons.logout,
+                      title: "Log Out",
+                      onTap: _confirmLogout,
+                      color: Colors.red),
+                ],
+              ),
+            ),
     );
   }
 

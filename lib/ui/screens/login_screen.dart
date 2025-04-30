@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,27 +12,34 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
+  final formKey = GlobalKey<FormState>();
 
   Future<void> _login() async {
     final prefs = await SharedPreferences.getInstance();
-    final storedEmail = prefs.getString('userEmail');
-    final storedPassword = prefs.getString('userPassword');
+    final userData = prefs.getString('userData');
 
-    if (_formKey.currentState!.validate()) {
-      if (emailController.text.trim() == storedEmail &&
-          passwordController.text.trim() == storedPassword) {
-        await prefs.setBool('isLoggedIn', true);
-
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/home');
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid email or password')),
-        );
-      }
+    if (userData == null) {
+      _showSnack("No user found. Please register first.");
+      return;
     }
+
+    final user = jsonDecode(userData);
+    final inputEmail = emailController.text.trim();
+    final inputPassword = passwordController.text.trim();
+
+    if (user['email'] == inputEmail && user['password'] == inputPassword) {
+      await prefs.setBool('isLoggedIn', true);
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } else {
+      _showSnack("Invalid email or password.");
+    }
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -46,25 +54,38 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Form(
-          key: _formKey,
+          key: formKey,
           child: ListView(
             children: [
               TextFormField(
                 controller: emailController,
                 decoration: const InputDecoration(labelText: 'Email'),
                 validator: (value) =>
-                    value!.isEmpty ? 'Please enter your email' : null,
+                    value!.contains('@') ? null : 'Enter a valid email',
               ),
               TextFormField(
                 controller: passwordController,
                 decoration: const InputDecoration(labelText: 'Password'),
                 obscureText: true,
                 validator: (value) =>
-                    value!.isEmpty ? 'Please enter your password' : null,
+                    value!.isEmpty ? 'Enter your password' : null,
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/forgot-password'),
+                  child: const Text("Forgot Password?"),
+                ),
+              ),
+              const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _login,
+                onPressed: () {
+                  if (formKey.currentState!.validate()) {
+                    _login();
+                  }
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   minimumSize: const Size.fromHeight(50),
