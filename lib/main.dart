@@ -32,6 +32,22 @@ class MyApp extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
+        cardTheme: const CardTheme(
+          color: Color(0xFFE7E7E7),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+          elevation: 2,
+          // margin: EdgeInsets.symmetric(vertical: 8),
+        ),
+        // listTileTheme: const ListTileThemeData(
+        //   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        //   iconColor: Colors.black87,
+        //   textColor: Colors.black87,
+        //   shape: RoundedRectangleBorder(
+        //     borderRadius: BorderRadius.all(Radius.circular(12)),
+        //   ),
+        // ),
       ),
       debugShowCheckedModeBanner: false,
       initialRoute: '/splash',

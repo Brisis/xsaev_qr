@@ -2,32 +2,97 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:xsaev/domain/services/receiver_bluetooth_service.dart';
 
-class QrDisplayScreen extends StatelessWidget {
+class QrDisplayScreen extends StatefulWidget {
   final Map<String, dynamic> data;
 
   const QrDisplayScreen({super.key, required this.data});
 
   @override
+  State<QrDisplayScreen> createState() => _QrDisplayScreenState();
+}
+
+class _QrDisplayScreenState extends State<QrDisplayScreen> {
+  @override
+  void initState() {
+    super.initState();
+    receiveTx();
+  }
+
+// Store the service instance to manage lifecycle
+  ReceiverBluetoothService? _receiverService;
+
+  @override
+  void dispose() {
+    // Stop scanning when the widget is disposed
+    _receiverService?.dispose();
+    super.dispose();
+  }
+
+  Future<void> receiveTx() async {
+    try {
+      if (!(await FlutterBluePlus.isSupported)) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Bluetooth not available"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        return;
+      }
+
+      final adapterState = await FlutterBluePlus.adapterState.first;
+      if (adapterState != BluetoothAdapterState.on) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Bluetooth is off"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        return;
+      }
+
+      _receiverService = ReceiverBluetoothService();
+      await _receiverService!.startScanning((receivedAmount) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  "Received \$${receivedAmount.toStringAsFixed(2)} via Bluetooth"),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final String encoded = jsonEncode(data);
-    final String account = data['account'] ?? '';
-    final String item = data['item'] ?? '';
-    final String price = data['price'] ?? '';
-    final String? imagePath = data['imagePath'];
+    final String encoded = jsonEncode(widget.data);
+    final String account = widget.data['account'] ?? '';
+    final String item = widget.data['item'] ?? '';
+    final String price = widget.data['price'] ?? '';
+    final String? imagePath = widget.data['imagePath'];
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        leading: IconButton(
-          onPressed: () => Navigator.pushNamed(context, '/home'),
-          icon: const Icon(
-            Icons.arrow_back,
-          ),
-        ),
         title: const Text('Generated Code'),
-        backgroundColor: const Color(0xFF2196F3),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),

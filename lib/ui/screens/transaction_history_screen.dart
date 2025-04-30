@@ -59,7 +59,11 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     ),
                     title: Text(
                       '${tx.type == 'incoming' ? 'Received from' : 'Sent to'} ${tx.counterpart}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      maxLines: 1,
                     ),
                     subtitle: Text(tx.timestamp.toString().substring(0, 10)),
                     trailing: Text(

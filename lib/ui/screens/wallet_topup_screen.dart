@@ -71,6 +71,9 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
       );
       _amountController.clear();
       setState(() {}); // Refresh UI
+
+      // Navigate
+      Navigator.pop(context);
     }
   }
 

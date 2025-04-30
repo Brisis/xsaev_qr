@@ -133,6 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     title: tx['counterpart'],
                     amount: tx['amount'],
                     date: tx['timestamp'].toString().substring(0, 10),
+                    type: tx['type'],
                   ))
             else
               const Text(
@@ -189,11 +190,13 @@ class _TransactionItem extends StatelessWidget {
   final String title;
   final double amount;
   final String date;
+  final String type;
 
   const _TransactionItem({
     required this.title,
     required this.amount,
     required this.date,
+    required this.type,
   });
 
   @override
@@ -202,8 +205,18 @@ class _TransactionItem extends StatelessWidget {
       elevation: 1.5,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        leading: const Icon(Icons.payment, color: Colors.blueAccent),
-        title: Text(title),
+        leading: Icon(
+          type == 'incoming' ? Icons.call_received : Icons.call_made,
+          color: type == 'incoming' ? Colors.green : Colors.red,
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            overflow: TextOverflow.ellipsis,
+          ),
+          maxLines: 1,
+        ),
         subtitle: Text(date),
         trailing: Text(
           "\$$amount",

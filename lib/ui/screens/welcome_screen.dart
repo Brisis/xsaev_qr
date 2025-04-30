@@ -19,7 +19,7 @@ class WelcomeScreen extends StatelessWidget {
                     size: 100, color: primaryColor),
                 const SizedBox(height: 20),
                 const Text(
-                  'QuickPay',
+                  'Xsaev',
                   style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,

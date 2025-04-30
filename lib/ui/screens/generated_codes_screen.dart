@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xsaev/ui/screens/qr_display_screen.dart';
 
 class GeneratedCodesScreen extends StatelessWidget {
   const GeneratedCodesScreen({super.key});
@@ -11,6 +12,8 @@ class GeneratedCodesScreen extends StatelessWidget {
     final codesJson = prefs.getStringList('generatedQrCodes') ?? [];
     return codesJson
         .map((code) => jsonDecode(code) as Map<String, dynamic>)
+        .toList()
+        .reversed
         .toList();
   }
 
@@ -45,7 +48,7 @@ class GeneratedCodesScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final code = codes[index];
               return Card(
-                color: Color.fromARGB(255, 231, 231, 231),
+                color: const Color.fromARGB(255, 231, 231, 231),
                 margin: const EdgeInsets.symmetric(vertical: 8),
                 child: ListTile(
                   leading:
@@ -63,11 +66,20 @@ class GeneratedCodesScreen extends StatelessWidget {
                           : const Icon(Icons.qr_code),
                   title: Text(
                     code['item'],
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   subtitle: Text('\$${code['price']}'),
+                  onTap: () {
+                    // Navigate to QR Display
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => QrDisplayScreen(data: code),
+                      ),
+                    );
+                  },
                   // subtitle: Text(
                   //     'Price: \$${code['price']} • Account: ${code['account']}'),
                 ),

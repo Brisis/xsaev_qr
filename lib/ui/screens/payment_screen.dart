@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:xsaev/domain/services/bluetooth_service.dart';
 
 class PaymentScreen extends StatelessWidget {
   final Map<String, dynamic> details;
@@ -25,7 +26,11 @@ class PaymentScreen extends StatelessWidget {
                 style: const TextStyle(fontSize: 18)),
             const SizedBox(height: 30),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
+                await BluetoothTransferService().sendPaymentOverBluetooth(
+                  details['account'],
+                  details['price'],
+                );
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Payment Successful!')),
                 );
