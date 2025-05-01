@@ -3,13 +3,106 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xsaev/core/constants.dart';
-import 'package:xsaev/domain/services/bluetooth_service.dart';
+import 'package:xsaev/data/models/transaction.dart';
+import 'package:xsaev/data/models/user.dart';
+import 'package:xsaev/domain/services/wifi_service.dart';
 
-class PaymentScreen extends StatelessWidget {
+class PaymentScreen extends StatefulWidget {
   final Map<String, dynamic> details;
 
   const PaymentScreen({super.key, required this.details});
+
+  @override
+  State<PaymentScreen> createState() => _PaymentScreenState();
+}
+
+class _PaymentScreenState extends State<PaymentScreen> {
+  AppUser? user;
+  final WiFiDirectService wifiService = WiFiDirectService();
+
+  @override
+  void initState() {
+    super.initState();
+    setupP2P();
+    _loadUser();
+  }
+
+  void setupP2P() async {
+    await wifiService.init();
+    await wifiService.askPermissions();
+  }
+
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userJson = prefs.getString('userData');
+    if (userJson != null) {
+      setState(() {
+        user = AppUser.fromJson(jsonDecode(userJson));
+      });
+    }
+  }
+
+  void sendTransfer(String account, double amount) async {
+    // startP2PSocket();
+    // connectToPeerSocket();
+
+    final data = {
+      'account': account,
+      'amount': amount,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+
+    wifiService.sendMessage(jsonEncode(data));
+
+    await _updateWalletBalance(amount, account);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Payment Successful!')),
+    );
+    Navigator.pop(context);
+  }
+
+  // void startP2PSocket() {
+  //   wifiService.startSocket(
+  //     onConnect: (name, addr) => print("Connected to $name@$addr"),
+  //     onMessage: (msg) async {
+  //       final data = jsonDecode(msg);
+  //       print("Received wallet tx: $data");
+  //       // Example: Update balance
+  //       final amount = double.tryParse(data['amount']) ?? 0.0;
+  //       await _updateWalletBalance(amount);
+
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('Payment Successful!')),
+  //       );
+  //       Navigator.pop(context);
+  //     },
+  //   );
+  // }
+
+  Future<void> _updateWalletBalance(double amount, String fromAccount) async {
+    final prefs = await SharedPreferences.getInstance();
+    final userJson = prefs.getString('userData');
+    if (userJson == null) return;
+
+    final user = AppUser.fromJson(jsonDecode(userJson));
+
+    final newTransaction = Transaction(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      type: 'outgoing',
+      amount: amount,
+      counterpart: fromAccount,
+      timestamp: DateTime.now(),
+    );
+
+    final updatedUser = user.copyWith(
+      balance: user.balance - amount,
+      transactions: [...user.transactions, newTransaction],
+    );
+    await prefs.setString('userData', jsonEncode(updatedUser.toJson()));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,14 +125,14 @@ class PaymentScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   QrImageView(
-                    data: jsonEncode(details),
+                    data: jsonEncode(widget.details),
                     version: QrVersions.auto,
                     size: 240,
                     gapless: false,
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'Account: ${details['account']}',
+                    'Account: ${widget.details['account']}',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -47,22 +140,22 @@ class PaymentScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Item: ${details['item']}',
+                    'Item: ${widget.details['item']}',
                     style: const TextStyle(fontSize: 15),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Price: \$${details['price']}',
+                    'Price: \$${widget.details['price']}',
                     style: const TextStyle(fontSize: 15),
                   ),
-                  if (details['imagePath'] != null &&
-                      details['imagePath'] != '')
+                  if (widget.details['imagePath'] != null &&
+                      widget.details['imagePath'] != '')
                     Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: Image.file(
-                          File(details['imagePath']),
+                          File(widget.details['imagePath']),
                           height: 100,
                           width: 100,
                           fit: BoxFit.cover,
@@ -72,14 +165,16 @@ class PaymentScreen extends StatelessWidget {
                   const SizedBox(height: 15),
                   ElevatedButton(
                     onPressed: () async {
-                      await BluetoothTransferService().sendPaymentOverBluetooth(
-                        details['account'],
-                        double.tryParse(details['price']) ?? 0.0,
+                      sendTransfer(
+                        widget.details['account'],
+                        double.tryParse(widget.details['price']) ?? 0.0,
                       );
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Payment Successful!')),
-                      );
-                      Navigator.pop(context);
+                      // onQRScanComplete(widget.details);
+                      // await BluetoothTransferService().sendPaymentOverBluetooth(
+                      // details['account'],
+                      // double.tryParse(details['price']) ?? 0.0,
+                      // );
+
                       // Navigator.popUntil(context, (route) => route.isFirst);
                     },
                     style: ElevatedButton.styleFrom(

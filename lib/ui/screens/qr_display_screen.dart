@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:xsaev/domain/services/receiver_bluetooth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xsaev/data/models/transaction.dart';
+import 'package:xsaev/data/models/user.dart';
+import 'package:xsaev/domain/services/wifi_service.dart';
 
 class QrDisplayScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -16,70 +18,137 @@ class QrDisplayScreen extends StatefulWidget {
 }
 
 class _QrDisplayScreenState extends State<QrDisplayScreen> {
+  AppUser? user;
+  final WiFiDirectService wifiService = WiFiDirectService();
+
   @override
   void initState() {
     super.initState();
-    receiveTx();
+    setupP2P();
+    _loadUser();
+    startP2PSocket();
   }
 
-// Store the service instance to manage lifecycle
-  ReceiverBluetoothService? _receiverService;
-
-  @override
-  void dispose() {
-    // Stop scanning when the widget is disposed
-    _receiverService?.dispose();
-    super.dispose();
+  void setupP2P() async {
+    await wifiService.init();
+    await wifiService.askPermissions();
   }
 
-  Future<void> receiveTx() async {
-    try {
-      if (!(await FlutterBluePlus.isSupported)) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Bluetooth not available"),
-            backgroundColor: Colors.green,
-          ),
-        );
-        return;
-      }
-
-      final adapterState = await FlutterBluePlus.adapterState.first;
-      if (adapterState != BluetoothAdapterState.on) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Bluetooth is off"),
-            backgroundColor: Colors.green,
-          ),
-        );
-        return;
-      }
-
-      _receiverService = ReceiverBluetoothService();
-      await _receiverService!.startScanning((receivedAmount) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  "Received \$${receivedAmount.toStringAsFixed(2)} via Bluetooth"),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userJson = prefs.getString('userData');
+    if (userJson != null) {
+      setState(() {
+        user = AppUser.fromJson(jsonDecode(userJson));
       });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error: $e"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
+
+  void startP2PSocket() {
+    wifiService.startSocket(
+      onConnect: (name, addr) => print("Connected to $name@$addr"),
+      onMessage: (msg) async {
+        final data = jsonDecode(msg);
+        print("Received wallet tx: $data");
+        // Example: Update balance
+        final amount = double.tryParse(data['amount']) ?? 0.0;
+        await _updateWalletBalance(amount, data['account']);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Received \$$amount from ${data['account']}')),
+        );
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  Future<void> _updateWalletBalance(double amount, String fromAccount) async {
+    final prefs = await SharedPreferences.getInstance();
+    final userJson = prefs.getString('userData');
+    if (userJson == null) return;
+
+    final user = AppUser.fromJson(jsonDecode(userJson));
+
+    final newTransaction = Transaction(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      type: 'incoming',
+      amount: amount,
+      counterpart: fromAccount,
+      timestamp: DateTime.now(),
+    );
+
+    final updatedUser = user.copyWith(
+      balance: user.balance + amount,
+      transactions: [...user.transactions, newTransaction],
+    );
+
+    await prefs.setString('userData', jsonEncode(updatedUser.toJson()));
+  }
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     receiveTx();
+//   }
+
+// // Store the service instance to manage lifecycle
+//   ReceiverBluetoothService? _receiverService;
+
+//   @override
+//   void dispose() {
+//     // Stop scanning when the widget is disposed
+//     _receiverService?.dispose();
+//     super.dispose();
+//   }
+
+//   Future<void> receiveTx() async {
+//     try {
+//       if (!(await FlutterBluePlus.isSupported)) {
+//         if (!mounted) return;
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(
+//             content: Text("Bluetooth not available"),
+//             backgroundColor: Colors.green,
+//           ),
+//         );
+//         return;
+//       }
+
+//       final adapterState = await FlutterBluePlus.adapterState.first;
+//       if (adapterState != BluetoothAdapterState.on) {
+//         if (!mounted) return;
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(
+//             content: Text("Bluetooth is off"),
+//             backgroundColor: Colors.green,
+//           ),
+//         );
+//         return;
+//       }
+
+//       _receiverService = ReceiverBluetoothService();
+//       await _receiverService!.startScanning((receivedAmount) {
+//         if (mounted) {
+//           ScaffoldMessenger.of(context).showSnackBar(
+//             SnackBar(
+//               content: Text(
+//                   "Received \$${receivedAmount.toStringAsFixed(2)} via Bluetooth"),
+//               backgroundColor: Colors.green,
+//             ),
+//           );
+//         }
+//       });
+//     } catch (e) {
+//       if (mounted) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           SnackBar(
+//             content: Text("Error: $e"),
+//             backgroundColor: Colors.red,
+//           ),
+//         );
+//       }
+//     }
+//   }
 
   @override
   Widget build(BuildContext context) {

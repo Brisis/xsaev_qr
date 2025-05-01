@@ -210,7 +210,7 @@ class _TransactionItem extends StatelessWidget {
           color: type == 'incoming' ? Colors.green : Colors.red,
         ),
         title: Text(
-          title,
+          '${type == 'incoming' ? 'Received from' : 'Sent to'} $title',
           style: const TextStyle(
             fontWeight: FontWeight.w600,
             overflow: TextOverflow.ellipsis,
