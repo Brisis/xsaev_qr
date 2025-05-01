@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xsaev/ui/screens/qr_display_screen.dart';
-import 'package:xsaev/ui/screens/wfi_transfer.dart';
 
 class GeneratedCodesScreen extends StatelessWidget {
   const GeneratedCodesScreen({super.key});
