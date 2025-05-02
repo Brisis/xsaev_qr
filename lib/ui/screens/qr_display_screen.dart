@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xsaev/core/constants.dart';
 import 'package:xsaev/data/models/transaction.dart';
 import 'package:xsaev/data/models/user.dart';
 import 'package:xsaev/domain/services/wifi_service.dart';
@@ -249,6 +250,18 @@ class _QrDisplayScreenState extends State<QrDisplayScreen>
           ),
         ),
       ),
+      floatingActionButton: wifiService.peers.isEmpty
+          ? FloatingActionButton(
+              onPressed: () async {
+                await wifiService.initialize();
+              },
+              backgroundColor: primaryColor,
+              child: const Icon(
+                Icons.sync,
+                color: Colors.white,
+              ),
+            )
+          : null,
     );
   }
 }

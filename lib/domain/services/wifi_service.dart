@@ -19,6 +19,15 @@ class WifiService extends ChangeNotifier {
   Future<void> initialize() async {
     await _p2pPlugin.initialize();
     await _p2pPlugin.register();
+
+    await removeGroup();
+    await stopDiscovery();
+    await closeSocket();
+
+    await createGroup();
+    await discover();
+    await startSocket();
+
     _setupListeners();
   }
 

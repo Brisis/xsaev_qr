@@ -177,24 +177,40 @@ class _PaymentScreenState extends State<PaymentScreen>
                       ),
                     ),
                   const SizedBox(height: 15),
-                  ElevatedButton(
-                    onPressed: () async {
-                      sendTransfer(
-                        widget.details['account'],
-                        double.tryParse(widget.details['price']) ?? 0.0,
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      minimumSize: const Size.fromHeight(50),
-                    ),
-                    child: const Text(
-                      'Pay Now',
-                      style: TextStyle(
-                        color: Colors.white,
-                      ),
-                    ),
-                  )
+                  wifiService.peers.isNotEmpty
+                      ? ElevatedButton(
+                          onPressed: () async {
+                            sendTransfer(
+                              widget.details['account'],
+                              double.tryParse(widget.details['price']) ?? 0.0,
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            minimumSize: const Size.fromHeight(50),
+                          ),
+                          child: const Text(
+                            'Pay Now',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                      : ElevatedButton(
+                          onPressed: () async {
+                            await wifiService.initialize();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            minimumSize: const Size.fromHeight(50),
+                          ),
+                          child: const Text(
+                            'Discover',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                 ],
               ),
             ),
