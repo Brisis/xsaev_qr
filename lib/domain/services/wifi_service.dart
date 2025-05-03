@@ -14,21 +14,24 @@ class WifiService extends ChangeNotifier {
 
   List<DiscoveredPeers> get peers => _peers;
   WifiP2PInfo? get wifiP2PInfo => _wifiP2PInfo;
+
   Stream<String> get messages => _messageController.stream;
 
   Future<void> initialize() async {
     await _p2pPlugin.initialize();
     await _p2pPlugin.register();
-
-    await removeGroup();
-    await stopDiscovery();
-    await closeSocket();
-
-    await createGroup();
-    await discover();
-    await startSocket();
-
     _setupListeners();
+
+    await askConnectionPermissions();
+    await discover();
+
+    // // await closeSocket();
+    // await removeGroup();
+    // await stopDiscovery();
+
+    // await createGroup();
+
+    // await startSocket();
   }
 
   void _setupListeners() {
@@ -37,10 +40,27 @@ class WifiService extends ChangeNotifier {
       notifyListeners();
     });
 
-    _peersSubscription = _p2pPlugin.streamPeers().listen((event) {
-      _peers = event;
-      notifyListeners();
-    });
+    // _peersSubscription = _p2pPlugin.streamPeers().listen((event) {
+    //   _peersSubscription?.cancel(); // Clear existing subscription
+    //   _peers = event;
+    //   notifyListeners();
+    //   print("Updated peers list: ${_peers.length} items");
+    // });
+
+    _peersSubscription = _p2pPlugin.streamPeers().listen(
+      (event) {
+        _peers = event;
+        notifyListeners();
+        print("Updated peers list: ${_peers.length} items");
+      },
+      onError: (error) {
+        print("Peer stream error: $error");
+        _messageController.add("Error discovering peers: $error");
+      },
+      onDone: () {
+        print("Peer stream closed");
+      },
+    );
   }
 
   Future<bool> askStoragePermission() async {
@@ -48,7 +68,9 @@ class WifiService extends ChangeNotifier {
   }
 
   Future<bool> askConnectionPermissions() async {
-    return await _p2pPlugin.askConnectionPermissions();
+    final value = await _p2pPlugin.askConnectionPermissions();
+    _messageController.add("Permisions Granted: $value");
+    return value;
   }
 
   Future<bool> checkLocationEnabled() async {
@@ -68,12 +90,28 @@ class WifiService extends ChangeNotifier {
   }
 
   Future<bool?> createGroup() async {
-    return await _p2pPlugin.createGroup();
+    bool value = await _p2pPlugin.createGroup();
+
+    if (value == false) {
+      await _p2pPlugin.removeGroup();
+      value = await _p2pPlugin.createGroup();
+    }
+
+    _messageController.add("Create Group: $value");
+    return value;
   }
 
-  Future<bool?> removeGroup() async {
-    return await _p2pPlugin.removeGroup();
-  }
+  // Future<bool?> createGroup() async {
+  //   final value = await _p2pPlugin.createGroup();
+  //   _messageController.add("Create Group: $value");
+  //   return value;
+  // }
+
+  // Future<bool?> removeGroup() async {
+  //   final value = await _p2pPlugin.removeGroup();
+  //   _messageController.add("Remove Group: $value");
+  //   return value;
+  // }
 
   Future<WifiP2PGroupInfo?> groupInfo() async {
     return await _p2pPlugin.groupInfo();
@@ -84,12 +122,30 @@ class WifiService extends ChangeNotifier {
   }
 
   Future<bool?> discover() async {
-    return await _p2pPlugin.discover();
+    bool value = await _p2pPlugin.discover();
+
+    if (value == false) {
+      await _p2pPlugin.stopDiscovery();
+      value = await _p2pPlugin.discover();
+    }
+
+    _messageController.add("Discovery: $value");
+    notifyListeners();
+    return value;
   }
 
-  Future<bool?> stopDiscovery() async {
-    return await _p2pPlugin.stopDiscovery();
-  }
+  // Future<bool?> discover() async {
+  //   final value = await _p2pPlugin.discover();
+  //   _messageController.add("Discovery: $value");
+  //   notifyListeners();
+  //   return value;
+  // }
+
+  // Future<bool?> stopDiscovery() async {
+  //   final value = await _p2pPlugin.stopDiscovery();
+  //   _messageController.add("Stop Discovery: $value");
+  //   return value;
+  // }
 
   Future<void> startSocket() async {
     if (_wifiP2PInfo == null) return;
@@ -114,6 +170,7 @@ class WifiService extends ChangeNotifier {
       },
       receiveString: (req) {
         _messageController.add(req);
+        notifyListeners();
       },
     );
     _messageController.add("Socket started: $started");
@@ -141,6 +198,7 @@ class WifiService extends ChangeNotifier {
       },
       receiveString: (req) {
         _messageController.add(req);
+        notifyListeners();
       },
     );
   }

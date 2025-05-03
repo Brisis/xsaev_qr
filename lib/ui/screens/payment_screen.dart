@@ -32,7 +32,10 @@ class _PaymentScreenState extends State<PaymentScreen>
     WidgetsBinding.instance.addObserver(this);
     wifiService = WifiService();
     wifiService.initialize();
+
     _setupMessageListener();
+
+    // wifiService.discover();
   }
 
   void _setupMessageListener() {
@@ -81,7 +84,7 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   void sendTransfer(String account, double amount) async {
     final data = {
-      'account': account,
+      'account': user?.accountNumber,
       'amount': amount,
       'timestamp': DateTime.now().toIso8601String(),
     };
@@ -120,103 +123,199 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Make a Payment'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Center(
-          child: Card(
-            elevation: 6,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+    return ListenableBuilder(
+        listenable: wifiService,
+        builder: (context, _) {
+          return Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(
+              title: const Text('Make a Payment'),
             ),
-            child: Padding(
+            body: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  QrImageView(
-                    data: jsonEncode(widget.details),
-                    version: QrVersions.auto,
-                    size: 240,
-                    gapless: false,
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Account: ${widget.details['account']}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Item: ${widget.details['item']}',
-                    style: const TextStyle(fontSize: 15),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Price: \$${widget.details['price']}',
-                    style: const TextStyle(fontSize: 15),
-                  ),
-                  if (widget.details['imagePath'] != null &&
-                      widget.details['imagePath'] != '')
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          File(widget.details['imagePath']),
-                          height: 100,
-                          width: 100,
-                          fit: BoxFit.cover,
+                  Text("PEERS: ${wifiService.peers.length}"),
+                  SizedBox(
+                    height: 100,
+                    width: MediaQuery.of(context).size.width,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: wifiService.peers.length,
+                      itemBuilder: (context, index) => Center(
+                        child: GestureDetector(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => Center(
+                                child: AlertDialog(
+                                  content: SizedBox(
+                                    height: 200,
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                            "name: ${wifiService.peers[index].deviceName}"),
+                                        Text(
+                                            "address: ${wifiService.peers[index].deviceAddress}"),
+                                        Text(
+                                            "isGroupOwner: ${wifiService.peers[index].isGroupOwner}"),
+                                        Text(
+                                            "isServiceDiscoveryCapable: ${wifiService.peers[index].isServiceDiscoveryCapable}"),
+                                        Text(
+                                            "primaryDeviceType: ${wifiService.peers[index].primaryDeviceType}"),
+                                        Text(
+                                            "secondaryDeviceType: ${wifiService.peers[index].secondaryDeviceType}"),
+                                        Text(
+                                            "status: ${wifiService.peers[index].status}"),
+                                      ],
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () async {
+                                        await wifiService.connect(wifiService
+                                            .peers[index].deviceAddress);
+
+                                        await wifiService.startSocket();
+                                        Navigator.of(context).pop();
+                                      },
+                                      child: const Text("connect"),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            height: 80,
+                            width: 80,
+                            decoration: BoxDecoration(
+                              color: Colors.grey,
+                              borderRadius: BorderRadius.circular(50),
+                            ),
+                            child: Center(
+                              child: Text(
+                                wifiService.peers[index].deviceName
+                                    .toString()
+                                    .characters
+                                    .first
+                                    .toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 30,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  const SizedBox(height: 15),
-                  wifiService.peers.isNotEmpty
-                      ? ElevatedButton(
-                          onPressed: () async {
-                            sendTransfer(
-                              widget.details['account'],
-                              double.tryParse(widget.details['price']) ?? 0.0,
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
-                            minimumSize: const Size.fromHeight(50),
-                          ),
-                          child: const Text(
-                            'Pay Now',
-                            style: TextStyle(
-                              color: Colors.white,
+                  ),
+                  const SizedBox(height: 20),
+                  Center(
+                    child: Card(
+                      elevation: 6,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            QrImageView(
+                              data: jsonEncode(widget.details),
+                              version: QrVersions.auto,
+                              size: 240,
+                              gapless: false,
                             ),
-                          ),
-                        )
-                      : ElevatedButton(
-                          onPressed: () async {
-                            await wifiService.initialize();
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
-                            minimumSize: const Size.fromHeight(50),
-                          ),
-                          child: const Text(
-                            'Discover',
-                            style: TextStyle(
-                              color: Colors.white,
+                            const SizedBox(height: 20),
+                            Text(
+                              'Account: ${widget.details['account']}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Item: ${widget.details['item']}',
+                              style: const TextStyle(fontSize: 15),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Price: \$${widget.details['price']}',
+                              style: const TextStyle(fontSize: 15),
+                            ),
+                            if (widget.details['imagePath'] != null &&
+                                widget.details['imagePath'] != '')
+                              Padding(
+                                padding: const EdgeInsets.only(top: 16),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.file(
+                                    File(widget.details['imagePath']),
+                                    height: 100,
+                                    width: 100,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 15),
+                            wifiService.peers.isNotEmpty
+                                ? ElevatedButton(
+                                    onPressed: () async {
+                                      sendTransfer(
+                                        widget.details['account'],
+                                        double.tryParse(
+                                                widget.details['price']) ??
+                                            0.0,
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: primaryColor,
+                                      minimumSize: const Size.fromHeight(50),
+                                    ),
+                                    child: const Text(
+                                      'Pay Now',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : ElevatedButton(
+                                    onPressed: () async {
+                                      await wifiService.discover();
+
+                                      await wifiService.closeSocket();
+                                      await wifiService.createGroup();
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: primaryColor,
+                                      minimumSize: const Size.fromHeight(50),
+                                    ),
+                                    child: const Text(
+                                      'Discover',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                          ],
                         ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-        ),
-      ),
-    );
+          );
+        });
   }
 }
