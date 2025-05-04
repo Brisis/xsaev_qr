@@ -20,10 +20,14 @@ class WifiService extends ChangeNotifier {
   Future<void> initialize() async {
     await _p2pPlugin.initialize();
     await _p2pPlugin.register();
-    _setupListeners();
 
     await askConnectionPermissions();
+    await _p2pPlugin.removeGroup();
+
     await discover();
+    await createGroup();
+
+    _setupListeners();
 
     // // await closeSocket();
     // await removeGroup();
@@ -98,6 +102,7 @@ class WifiService extends ChangeNotifier {
     }
 
     _messageController.add("Create Group: $value");
+    notifyListeners();
     return value;
   }
 

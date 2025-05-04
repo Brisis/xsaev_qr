@@ -34,8 +34,6 @@ class _QrDisplayScreenState extends State<QrDisplayScreen>
     wifiService.initialize();
 
     _setupMessageListener();
-
-    wifiService.discover();
   }
 
   void _setupMessageListener() {
@@ -43,7 +41,7 @@ class _QrDisplayScreenState extends State<QrDisplayScreen>
       // print('my message: $message');
       if (message.contains('amount')) {
         final data = jsonDecode(message);
-        print(data);
+        // print(data);
         await _updateWalletBalance(
           data['amount'],
           data['account'],
@@ -268,7 +266,7 @@ class _QrDisplayScreenState extends State<QrDisplayScreen>
 
                                         await wifiService.startSocket();
 
-                                        await wifiService.connectToSocket();
+                                        // await wifiService.connectToSocket();
                                         Navigator.of(context).pop();
                                       },
                                       child: const Text("connect"),
@@ -366,10 +364,7 @@ class _QrDisplayScreenState extends State<QrDisplayScreen>
                     builder: (context, _) {
                       return FloatingActionButton(
                         onPressed: () async {
-                          await wifiService.discover();
-
-                          await wifiService.closeSocket();
-                          await wifiService.createGroup();
+                          await wifiService.initialize();
                         },
                         backgroundColor: primaryColor,
                         child: const Icon(

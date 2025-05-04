@@ -34,8 +34,6 @@ class _PaymentScreenState extends State<PaymentScreen>
     wifiService.initialize();
 
     _setupMessageListener();
-
-    // wifiService.discover();
   }
 
   void _setupMessageListener() {
@@ -182,7 +180,8 @@ class _PaymentScreenState extends State<PaymentScreen>
                                         await wifiService.connect(wifiService
                                             .peers[index].deviceAddress);
 
-                                        await wifiService.startSocket();
+                                        // await wifiService.startSocket();
+                                        await wifiService.connectToSocket();
                                         Navigator.of(context).pop();
                                       },
                                       child: const Text("connect"),
@@ -291,10 +290,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                                   )
                                 : ElevatedButton(
                                     onPressed: () async {
-                                      await wifiService.discover();
-
-                                      await wifiService.closeSocket();
-                                      await wifiService.createGroup();
+                                      await wifiService.initialize();
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: primaryColor,
