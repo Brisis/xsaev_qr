@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:xsaev/ui/screens/qr_display_screen.dart';
+import 'package:xsaev/ui/screens/receive_payment_screen.dart';
 
 class GeneratedCodesScreen extends StatelessWidget {
   const GeneratedCodesScreen({super.key});
@@ -76,7 +76,7 @@ class GeneratedCodesScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => QrDisplayScreen(data: code),
+                        builder: (context) => ReceivePaymentScreen(data: code),
                       ),
                     );
                   },

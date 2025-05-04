@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
-import 'package:xsaev/ui/screens/payment_screen.dart';
+import 'package:xsaev/ui/screens/make_payment_screen.dart';
 
 class ScanQrScreen extends StatefulWidget {
   const ScanQrScreen({super.key});
@@ -36,7 +36,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => PaymentScreen(details: data),
+            builder: (context) => MakePaymentScreen(details: data),
           ),
         );
       }

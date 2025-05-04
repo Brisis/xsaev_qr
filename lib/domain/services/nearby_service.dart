@@ -1,5 +1,4 @@
 // nearby_connections_service.dart
-import 'dart:math';
 import 'dart:typed_data';
 import 'dart:async';
 
@@ -70,6 +69,8 @@ class NearbyConnectionsService {
     if (!await _checkLocationEnabled())
       throw Exception('Location services required');
 
+    await Nearby().stopAdvertising();
+
     await Nearby().startAdvertising(
       userName,
       strategy,
@@ -90,6 +91,8 @@ class NearbyConnectionsService {
     await _checkPermissions();
     if (!await _checkLocationEnabled())
       throw Exception('Location services required');
+
+    await Nearby().stopDiscovery();
 
     await Nearby().startDiscovery(
       userName,

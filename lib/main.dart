@@ -1,5 +1,6 @@
 // ignore_for_file: avoid_print
 
+import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -234,15 +235,25 @@ class _BodyState extends State<Body> {
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    final randomBytes = Uint8List.fromList(
-                      [Random().nextInt(256), Random().nextInt(256)],
-                    );
+                    // Create the JSON data structure
+                    final data = {
+                      'account': "298302",
+                      'amount': 2.55,
+                      'timestamp': DateTime.now().toIso8601String(),
+                    };
+
+                    // Convert to JSON string and then to bytes
+                    final jsonString = jsonEncode(data);
+                    final jsonBytes =
+                        Uint8List.fromList(utf8.encode(jsonString));
+
+                    // Send to all connected endpoints
                     for (final endpoint in nearby.endpoints.keys) {
-                      nearby.sendBytes(endpoint, randomBytes);
+                      nearby.sendBytes(endpoint, jsonBytes);
                     }
-                    _showSnackbar('Random bytes sent');
+                    _showSnackbar('JSON data sent');
                   },
-                  child: const Text('Send Random Bytes'),
+                  child: const Text('Send Transaction Data'),
                 ),
                 ElevatedButton(
                   onPressed: () async {

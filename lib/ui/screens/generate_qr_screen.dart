@@ -6,7 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xsaev/core/constants.dart';
 import 'package:xsaev/data/models/user.dart';
-import 'package:xsaev/ui/screens/qr_display_screen.dart';
+import 'package:xsaev/ui/screens/receive_payment_screen.dart';
 
 class GenerateQrScreen extends StatefulWidget {
   const GenerateQrScreen({super.key});
@@ -72,7 +72,7 @@ class _GenerateQrScreenState extends State<GenerateQrScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => QrDisplayScreen(data: data),
+        builder: (context) => ReceivePaymentScreen(data: data),
       ),
     );
   }
