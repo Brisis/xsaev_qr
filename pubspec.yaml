@@ -42,6 +42,8 @@ dependencies:
   flutter_blue_plus:
   flutter_p2p_connection: ^2.1.1
   path_provider: ^2.1.5
+  nearby_connections: ^3.1.0
+  location: ^6.0.2
 
 dev_dependencies:
   flutter_test:
