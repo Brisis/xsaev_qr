@@ -1,353 +1,15 @@
 // ignore_for_file: avoid_print
 
-import 'dart:convert';
-import 'dart:math';
-import 'dart:typed_data';
-
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:nearby_connections/nearby_connections.dart';
-import 'package:xsaev/domain/services/nearby_service.dart';
-
-void main() => runApp(const MyApp());
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Nearby Connections Example'),
-        ),
-        body: const Body(),
-      ),
-    );
-  }
-}
-
-class Body extends StatefulWidget {
-  const Body({super.key});
-
-  @override
-  State<Body> createState() => _BodyState();
-}
-
-class _BodyState extends State<Body> {
-  final NearbyConnectionsService nearby = NearbyConnectionsService();
-  final String userName = Random().nextInt(10000).toString();
-  final Strategy strategy = Strategy.P2P_STAR;
-  final ImagePicker _imagePicker = ImagePicker();
-
-  @override
-  void initState() {
-    super.initState();
-    _setupListeners();
-  }
-
-  void _setupListeners() {
-    nearby.onConnectionInitiated.listen((event) {
-      _showConnectionDialog(event.endpointId, event.info);
-    });
-
-    nearby.onConnectionResult.listen((event) {
-      _showSnackbar('Connection ${event.status} with ${event.endpointId}');
-    });
-
-    nearby.onDisconnected.listen((endpointId) {
-      _showSnackbar('Disconnected: $endpointId');
-      setState(() {});
-    });
-
-    nearby.onPayloadReceived.listen((event) {
-      _showSnackbar('Received from ${event.endpointId}: ${event.data}');
-    });
-
-    nearby.onPayloadTransferUpdate.listen((event) {
-      if (event.update.status == PayloadStatus.SUCCESS) {
-        _showSnackbar('Transfer success with ${event.endpointId}');
-      }
-    });
-  }
-
-  void _showConnectionDialog(String endpointId, ConnectionInfo info) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => ConnectionDialog(
-        endpointId: endpointId,
-        info: info,
-        onAccept: () => nearby.acceptConnection(endpointId, info),
-        onReject: () => Nearby().rejectConnection(endpointId),
-      ),
-    );
-  }
-
-  void _showSnackbar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-
-  @override
-  void dispose() {
-    nearby.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: ListView(
-        children: [
-          _buildAdvertisingSection(),
-          _buildDiscoverySection(),
-          _buildConnectionStatus(),
-          _buildDataTransferSection(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAdvertisingSection() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            const Text('Advertising', style: TextStyle(fontSize: 18)),
-            Wrap(
-              spacing: 8.0,
-              children: [
-                ElevatedButton(
-                  onPressed: () async {
-                    try {
-                      await nearby.startAdvertising(userName, strategy);
-                      _showSnackbar('Advertising started');
-                    } catch (e) {
-                      _showSnackbar('Error: $e');
-                    }
-                  },
-                  child: const Text('Start Advertising'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Nearby().stopAdvertising(),
-                  child: const Text('Stop Advertising'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDiscoverySection() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            const Text('Discovery', style: TextStyle(fontSize: 18)),
-            Wrap(
-              spacing: 8.0,
-              children: [
-                ElevatedButton(
-                  onPressed: () async {
-                    try {
-                      await nearby.startDiscovery(userName, strategy);
-                      _showSnackbar('Discovery started');
-                    } catch (e) {
-                      _showSnackbar('Error: $e');
-                    }
-                  },
-                  child: const Text('Start Discovery'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Nearby().stopDiscovery(),
-                  child: const Text('Stop Discovery'),
-                ),
-              ],
-            ),
-            StreamBuilder<String>(
-              stream: nearby.onEndpointDiscovered,
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  final data = snapshot.data!;
-                  if (data.startsWith('lost:')) {
-                    return Text('Lost endpoint: ${data.substring(5)}');
-                  }
-                  return ListTile(
-                    title: Text('Discovered endpoint: $data'),
-                    trailing: ElevatedButton(
-                      child: const Text('Connect'),
-                      onPressed: () => nearby.requestConnection(userName, data),
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildConnectionStatus() {
-    return Card(
-      child: StreamBuilder<Object>(
-          stream: nearby.onConnectionResult,
-          builder: (context, snapshot) {
-            return Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                children: [
-                  const Text('Connected Devices',
-                      style: TextStyle(fontSize: 18)),
-                  Text('${nearby.endpoints.length} devices connected',
-                      style: const TextStyle(fontSize: 16)),
-                  ElevatedButton(
-                    onPressed: () async {
-                      await nearby.stopAll();
-                      setState(() {});
-                      _showSnackbar('All connections stopped');
-                    },
-                    child: const Text('Stop All Connections'),
-                  ),
-                ],
-              ),
-            );
-          }),
-    );
-  }
-
-  Widget _buildDataTransferSection() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            const Text('Data Transfer', style: TextStyle(fontSize: 18)),
-            Wrap(
-              spacing: 8.0,
-              children: [
-                ElevatedButton(
-                  onPressed: () {
-                    // Create the JSON data structure
-                    final data = {
-                      'account': "298302",
-                      'amount': 2.55,
-                      'timestamp': DateTime.now().toIso8601String(),
-                    };
-
-                    // Convert to JSON string and then to bytes
-                    final jsonString = jsonEncode(data);
-                    final jsonBytes =
-                        Uint8List.fromList(utf8.encode(jsonString));
-
-                    // Send to all connected endpoints
-                    for (final endpoint in nearby.endpoints.keys) {
-                      nearby.sendBytes(endpoint, jsonBytes);
-                    }
-                    _showSnackbar('JSON data sent');
-                  },
-                  child: const Text('Send Transaction Data'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final file = await _imagePicker.pickImage(
-                      source: ImageSource.gallery,
-                    );
-                    if (file != null) {
-                      for (final endpoint in nearby.endpoints.keys) {
-                        await nearby.sendFile(endpoint, file.path);
-                      }
-                      _showSnackbar('File sent');
-                    }
-                  },
-                  child: const Text('Send File'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ConnectionDialog extends StatelessWidget {
-  final String endpointId;
-  final ConnectionInfo info;
-  final VoidCallback onAccept;
-  final VoidCallback onReject;
-
-  const ConnectionDialog({
-    super.key,
-    required this.endpointId,
-    required this.info,
-    required this.onAccept,
-    required this.onReject,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('Connection Request from ${info.endpointName}',
-              style: const TextStyle(fontSize: 18)),
-          const SizedBox(height: 16),
-          Text('ID: $endpointId'),
-          Text('Authentication Token: ${info.authenticationToken}'),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  onAccept();
-                },
-                child: const Text('Accept'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  onReject();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                ),
-                child: const Text('Reject'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
+// import 'dart:convert';
+// import 'dart:math';
+// import 'dart:typed_data';
 
 // import 'package:flutter/material.dart';
-// import 'package:xsaev/core/constants.dart';
-// import 'package:xsaev/ui/screens/forgot_password_screen.dart';
-// import 'package:xsaev/ui/screens/generate_qr_screen.dart';
-// import 'package:xsaev/ui/screens/home_screen.dart';
-// import 'package:xsaev/ui/screens/login_screen.dart';
-// import 'package:xsaev/ui/screens/profile_screen.dart';
-// import 'package:xsaev/ui/screens/register_screen.dart';
-// import 'package:xsaev/ui/screens/scan_qr_screen.dart';
-// import 'package:xsaev/ui/screens/splash_screen.dart';
-// import 'package:xsaev/ui/screens/welcome_screen.dart';
+// import 'package:image_picker/image_picker.dart';
+// import 'package:nearby_connections/nearby_connections.dart';
+// import 'package:xsaev/domain/services/nearby_service.dart';
 
-// void main() {
-//   runApp(const MyApp());
-// }
+// void main() => runApp(const MyApp());
 
 // class MyApp extends StatelessWidget {
 //   const MyApp({super.key});
@@ -355,51 +17,389 @@ class ConnectionDialog extends StatelessWidget {
 //   @override
 //   Widget build(BuildContext context) {
 //     return MaterialApp(
-//       title: 'Xsaev',
-//       theme: ThemeData(
-//         primarySwatch: customGreen,
-//         appBarTheme: const AppBarTheme(
-//           backgroundColor: primaryColor, // Main customGreen color
-//           iconTheme: IconThemeData(color: Colors.white), // Icon color
-//           titleTextStyle: TextStyle(
-//             color: Colors.white,
-//             fontSize: 20,
-//             fontWeight: FontWeight.w600,
-//           ),
+//       home: Scaffold(
+//         appBar: AppBar(
+//           title: const Text('Nearby Connections Example'),
 //         ),
-//         cardTheme: const CardTheme(
-//           color: Color(0xFFE7E7E7),
-//           shape: RoundedRectangleBorder(
-//             borderRadius: BorderRadius.all(Radius.circular(12)),
-//           ),
-//           elevation: 2,
-//           // margin: EdgeInsets.symmetric(vertical: 8),
-//         ),
-//         // listTileTheme: const ListTileThemeData(
-//         //   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-//         //   iconColor: Colors.black87,
-//         //   textColor: Colors.black87,
-//         //   shape: RoundedRectangleBorder(
-//         //     borderRadius: BorderRadius.all(Radius.circular(12)),
-//         //   ),
-//         // ),
+//         body: const Body(),
 //       ),
-//       debugShowCheckedModeBanner: false,
-//       initialRoute: '/splash',
-//       routes: {
-//         '/splash': (context) => const SplashScreen(),
-//         '/': (context) => const WelcomeScreen(),
-//         '/register': (context) => const RegisterScreen(),
-//         '/login': (context) => const LoginScreen(),
-//         '/forgot-password': (context) => const ForgotPasswordScreen(),
-//         '/home': (context) => const HomeScreen(),
-//         '/geneate-qr': (context) => const GenerateQrScreen(), // QR generation
-//         '/scan': (context) => const ScanQrScreen(), // QR scanner
-//         '/profile': (context) => const ProfileScreen(),
-//       },
 //     );
 //   }
 // }
+
+// class Body extends StatefulWidget {
+//   const Body({super.key});
+
+//   @override
+//   State<Body> createState() => _BodyState();
+// }
+
+// class _BodyState extends State<Body> {
+//   final NearbyConnectionsService nearby = NearbyConnectionsService();
+//   final String userName = Random().nextInt(10000).toString();
+//   final Strategy strategy = Strategy.P2P_STAR;
+//   final ImagePicker _imagePicker = ImagePicker();
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     _setupListeners();
+//   }
+
+//   void _setupListeners() {
+//     nearby.onConnectionInitiated.listen((event) {
+//       _showConnectionDialog(event.endpointId, event.info);
+//     });
+
+//     nearby.onConnectionResult.listen((event) {
+//       _showSnackbar('Connection ${event.status} with ${event.endpointId}');
+//     });
+
+//     nearby.onDisconnected.listen((endpointId) {
+//       _showSnackbar('Disconnected: $endpointId');
+//       setState(() {});
+//     });
+
+//     nearby.onPayloadReceived.listen((event) {
+//       _showSnackbar('Received from ${event.endpointId}: ${event.data}');
+//     });
+
+//     nearby.onPayloadTransferUpdate.listen((event) {
+//       if (event.update.status == PayloadStatus.SUCCESS) {
+//         _showSnackbar('Transfer success with ${event.endpointId}');
+//       }
+//     });
+//   }
+
+//   void _showConnectionDialog(String endpointId, ConnectionInfo info) {
+//     showModalBottomSheet(
+//       context: context,
+//       builder: (context) => ConnectionDialog(
+//         endpointId: endpointId,
+//         info: info,
+//         onAccept: () => nearby.acceptConnection(endpointId, info),
+//         onReject: () => Nearby().rejectConnection(endpointId),
+//       ),
+//     );
+//   }
+
+//   void _showSnackbar(String message) {
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(content: Text(message)),
+//     );
+//   }
+
+//   @override
+//   void dispose() {
+//     nearby.dispose();
+//     super.dispose();
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Padding(
+//       padding: const EdgeInsets.all(16.0),
+//       child: ListView(
+//         children: [
+//           _buildAdvertisingSection(),
+//           _buildDiscoverySection(),
+//           _buildConnectionStatus(),
+//           _buildDataTransferSection(),
+//         ],
+//       ),
+//     );
+//   }
+
+//   Widget _buildAdvertisingSection() {
+//     return Card(
+//       child: Padding(
+//         padding: const EdgeInsets.all(8.0),
+//         child: Column(
+//           children: [
+//             const Text('Advertising', style: TextStyle(fontSize: 18)),
+//             Wrap(
+//               spacing: 8.0,
+//               children: [
+//                 ElevatedButton(
+//                   onPressed: () async {
+//                     try {
+//                       await nearby.startAdvertising(userName, strategy);
+//                       _showSnackbar('Advertising started');
+//                     } catch (e) {
+//                       _showSnackbar('Error: $e');
+//                     }
+//                   },
+//                   child: const Text('Start Advertising'),
+//                 ),
+//                 ElevatedButton(
+//                   onPressed: () => Nearby().stopAdvertising(),
+//                   child: const Text('Stop Advertising'),
+//                 ),
+//               ],
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+
+//   Widget _buildDiscoverySection() {
+//     return Card(
+//       child: Padding(
+//         padding: const EdgeInsets.all(8.0),
+//         child: Column(
+//           children: [
+//             const Text('Discovery', style: TextStyle(fontSize: 18)),
+//             Wrap(
+//               spacing: 8.0,
+//               children: [
+//                 ElevatedButton(
+//                   onPressed: () async {
+//                     try {
+//                       await nearby.startDiscovery(userName, strategy);
+//                       _showSnackbar('Discovery started');
+//                     } catch (e) {
+//                       _showSnackbar('Error: $e');
+//                     }
+//                   },
+//                   child: const Text('Start Discovery'),
+//                 ),
+//                 ElevatedButton(
+//                   onPressed: () => Nearby().stopDiscovery(),
+//                   child: const Text('Stop Discovery'),
+//                 ),
+//               ],
+//             ),
+//             StreamBuilder<String>(
+//               stream: nearby.onEndpointDiscovered,
+//               builder: (context, snapshot) {
+//                 if (snapshot.hasData) {
+//                   final data = snapshot.data!;
+//                   if (data.startsWith('lost:')) {
+//                     return Text('Lost endpoint: ${data.substring(5)}');
+//                   }
+//                   return ListTile(
+//                     title: Text('Discovered endpoint: $data'),
+//                     trailing: ElevatedButton(
+//                       child: const Text('Connect'),
+//                       onPressed: () => nearby.requestConnection(userName, data),
+//                     ),
+//                   );
+//                 }
+//                 return const SizedBox.shrink();
+//               },
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+
+//   Widget _buildConnectionStatus() {
+//     return Card(
+//       child: StreamBuilder<Object>(
+//           stream: nearby.onConnectionResult,
+//           builder: (context, snapshot) {
+//             return Padding(
+//               padding: const EdgeInsets.all(8.0),
+//               child: Column(
+//                 children: [
+//                   const Text('Connected Devices',
+//                       style: TextStyle(fontSize: 18)),
+//                   Text('${nearby.endpoints.length} devices connected',
+//                       style: const TextStyle(fontSize: 16)),
+//                   ElevatedButton(
+//                     onPressed: () async {
+//                       await nearby.stopAll();
+//                       setState(() {});
+//                       _showSnackbar('All connections stopped');
+//                     },
+//                     child: const Text('Stop All Connections'),
+//                   ),
+//                 ],
+//               ),
+//             );
+//           }),
+//     );
+//   }
+
+//   Widget _buildDataTransferSection() {
+//     return Card(
+//       child: Padding(
+//         padding: const EdgeInsets.all(8.0),
+//         child: Column(
+//           children: [
+//             const Text('Data Transfer', style: TextStyle(fontSize: 18)),
+//             Wrap(
+//               spacing: 8.0,
+//               children: [
+//                 ElevatedButton(
+//                   onPressed: () {
+//                     // Create the JSON data structure
+//                     final data = {
+//                       'account': "298302",
+//                       'amount': 2.55,
+//                       'timestamp': DateTime.now().toIso8601String(),
+//                     };
+
+//                     // Convert to JSON string and then to bytes
+//                     final jsonString = jsonEncode(data);
+//                     final jsonBytes =
+//                         Uint8List.fromList(utf8.encode(jsonString));
+
+//                     // Send to all connected endpoints
+//                     for (final endpoint in nearby.endpoints.keys) {
+//                       nearby.sendBytes(endpoint, jsonBytes);
+//                     }
+//                     _showSnackbar('JSON data sent');
+//                   },
+//                   child: const Text('Send Transaction Data'),
+//                 ),
+//                 ElevatedButton(
+//                   onPressed: () async {
+//                     final file = await _imagePicker.pickImage(
+//                       source: ImageSource.gallery,
+//                     );
+//                     if (file != null) {
+//                       for (final endpoint in nearby.endpoints.keys) {
+//                         await nearby.sendFile(endpoint, file.path);
+//                       }
+//                       _showSnackbar('File sent');
+//                     }
+//                   },
+//                   child: const Text('Send File'),
+//                 ),
+//               ],
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }
+
+// class ConnectionDialog extends StatelessWidget {
+//   final String endpointId;
+//   final ConnectionInfo info;
+//   final VoidCallback onAccept;
+//   final VoidCallback onReject;
+
+//   const ConnectionDialog({
+//     super.key,
+//     required this.endpointId,
+//     required this.info,
+//     required this.onAccept,
+//     required this.onReject,
+//   });
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Padding(
+//       padding: const EdgeInsets.all(16.0),
+//       child: Column(
+//         mainAxisSize: MainAxisSize.min,
+//         children: [
+//           Text('Connection Request from ${info.endpointName}',
+//               style: const TextStyle(fontSize: 18)),
+//           const SizedBox(height: 16),
+//           Text('ID: $endpointId'),
+//           Text('Authentication Token: ${info.authenticationToken}'),
+//           const SizedBox(height: 24),
+//           Row(
+//             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+//             children: [
+//               ElevatedButton(
+//                 onPressed: () {
+//                   Navigator.pop(context);
+//                   onAccept();
+//                 },
+//                 child: const Text('Accept'),
+//               ),
+//               ElevatedButton(
+//                 onPressed: () {
+//                   Navigator.pop(context);
+//                   onReject();
+//                 },
+//                 style: ElevatedButton.styleFrom(
+//                   backgroundColor: Colors.red,
+//                 ),
+//                 child: const Text('Reject'),
+//               ),
+//             ],
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
+import 'package:flutter/material.dart';
+import 'package:xsaev/core/constants.dart';
+import 'package:xsaev/ui/screens/forgot_password_screen.dart';
+import 'package:xsaev/ui/screens/generate_qr_screen.dart';
+import 'package:xsaev/ui/screens/home_screen.dart';
+import 'package:xsaev/ui/screens/login_screen.dart';
+import 'package:xsaev/ui/screens/profile_screen.dart';
+import 'package:xsaev/ui/screens/register_screen.dart';
+import 'package:xsaev/ui/screens/scan_qr_screen.dart';
+import 'package:xsaev/ui/screens/splash_screen.dart';
+import 'package:xsaev/ui/screens/welcome_screen.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Xsaev',
+      theme: ThemeData(
+        primarySwatch: customGreen,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: primaryColor, // Main customGreen color
+          iconTheme: IconThemeData(color: Colors.white), // Icon color
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        cardTheme: const CardTheme(
+          color: Color(0xFFE7E7E7),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+          elevation: 2,
+          // margin: EdgeInsets.symmetric(vertical: 8),
+        ),
+        // listTileTheme: const ListTileThemeData(
+        //   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        //   iconColor: Colors.black87,
+        //   textColor: Colors.black87,
+        //   shape: RoundedRectangleBorder(
+        //     borderRadius: BorderRadius.all(Radius.circular(12)),
+        //   ),
+        // ),
+      ),
+      debugShowCheckedModeBanner: false,
+      initialRoute: '/splash',
+      routes: {
+        '/splash': (context) => const SplashScreen(),
+        '/': (context) => const WelcomeScreen(),
+        '/register': (context) => const RegisterScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/forgot-password': (context) => const ForgotPasswordScreen(),
+        '/home': (context) => const HomeScreen(),
+        '/geneate-qr': (context) => const GenerateQrScreen(), // QR generation
+        '/scan': (context) => const ScanQrScreen(), // QR scanner
+        '/profile': (context) => const ProfileScreen(),
+      },
+    );
+  }
+}
 
 // import 'dart:io';
 

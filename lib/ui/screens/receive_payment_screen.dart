@@ -3,7 +3,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:nearby_connections/nearby_connections.dart';
@@ -13,6 +12,7 @@ import 'package:xsaev/core/constants.dart';
 import 'package:xsaev/data/models/transaction.dart';
 import 'package:xsaev/data/models/user.dart';
 import 'package:xsaev/domain/services/nearby_service.dart';
+import 'package:xsaev/ui/screens/home_screen.dart';
 
 class ReceivePaymentScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -25,9 +25,10 @@ class ReceivePaymentScreen extends StatefulWidget {
 
 class _ReceivePaymentScreenState extends State<ReceivePaymentScreen> {
   final NearbyConnectionsService nearby = NearbyConnectionsService();
-  final String userName = Random().nextInt(10000).toString();
+  String userName = "Receiver";
   final Strategy strategy = Strategy.P2P_STAR;
   AppUser? user;
+
   bool _isReceiving = false;
   String _statusMessage = 'Waiting for payment...';
 
@@ -39,27 +40,68 @@ class _ReceivePaymentScreenState extends State<ReceivePaymentScreen> {
     _setupListeners();
   }
 
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userJson = prefs.getString('userData');
+    if (userJson != null) {
+      setState(() {
+        user = AppUser.fromJson(jsonDecode(userJson));
+        userName = user?.accountNumber ?? Random().nextInt(10000).toString();
+      });
+    }
+  }
+
+  Future<void> _startPaymentListener() async {
+    try {
+      await nearby.startAdvertising(userName, strategy);
+      // _showSnackbar('Advertising started');
+
+      //discovery
+      await nearby.startDiscovery(userName, strategy);
+      // _showSnackbar('Discovery started');
+    } catch (e) {
+      _showSnackbar('Error: $e');
+    }
+  }
+
   void _setupListeners() {
     nearby.onConnectionInitiated.listen((event) {
       _showConnectionDialog(event.endpointId, event.info);
     });
 
     nearby.onConnectionResult.listen((event) {
-      _showSnackbar('Connection ${event.status} with ${event.endpointId}');
+      // _showSnackbar('Connection ${event.status} with ${event.endpointId}');
     });
 
     nearby.onDisconnected.listen((endpointId) {
-      _showSnackbar('Disconnected: $endpointId');
+      // _showSnackbar('Disconnected: $endpointId');
       setState(() {});
     });
 
     nearby.onPayloadReceived.listen((event) {
-      _showSnackbar('Received from ${event.endpointId}: ${event.data}');
+      // _showSnackbar('Received from ${event.endpointId}: ${event.data}');
+      if (event.data.toString().contains("amount")) {
+        final data = jsonDecode(event.data);
+
+        _updateWalletBalance(
+          data["amount"],
+          data["sender"],
+        );
+
+        _showSnackbar("Payment received.");
+
+        nearby.stopAll();
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          (Route<dynamic> route) => false,
+        );
+      }
     });
 
     nearby.onPayloadTransferUpdate.listen((event) {
       if (event.update.status == PayloadStatus.SUCCESS) {
-        _showSnackbar('Transfer success with ${event.endpointId}');
+        // _showSnackbar('Transfer success with ${event.endpointId}');
       }
     });
   }
@@ -88,89 +130,6 @@ class _ReceivePaymentScreenState extends State<ReceivePaymentScreen> {
     super.dispose();
   }
 
-  Future<void> _loadUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userJson = prefs.getString('userData');
-    if (userJson != null) {
-      setState(() => user = AppUser.fromJson(jsonDecode(userJson)));
-    }
-  }
-
-  Future<void> _startPaymentListener() async {
-    try {
-      Nearby().stopAdvertising();
-
-      await nearby.startAdvertising(userName, strategy);
-      _showSnackbar('Advertising started');
-
-      //discovery
-      Nearby().stopDiscovery();
-      await nearby.startDiscovery(userName, strategy);
-      _showSnackbar('Discovery started');
-    } catch (e) {
-      _showSnackbar('Error: $e');
-    }
-  }
-
-  // void _startPaymentListener() {
-  //   try {
-  //     _paymentSub = _nearby.onPayloadReceived.listen((event) async {
-  //       try {
-  //         final paymentData = jsonDecode(event.data);
-  //         if (_validatePayment(paymentData)) {
-  //           setState(() {
-  //             _isReceiving = true;
-  //             _statusMessage = 'Processing payment...';
-  //           });
-
-  //           await _processPayment(paymentData, event.endpointId);
-
-  //           setState(() {
-  //             _statusMessage = 'Payment received!';
-  //             _isReceiving = false;
-  //           });
-
-  //           await Future.delayed(const Duration(seconds: 2));
-  //           Navigator.pop(context);
-  //         }
-  //       } catch (e) {
-  //         _handleError('Invalid payment data');
-  //       }
-  //     });
-  //   } catch (e) {
-  //     _handleError('Error starting payment listener');
-  //   }
-  // }
-
-  // bool _validatePayment(Map<String, dynamic> paymentData) {
-  //   return paymentData['receiver'] == widget.data['account'] &&
-  //       paymentData['amount'] is num &&
-  //       paymentData['sender'] is String;
-  // }
-
-  // Future<void> _processPayment(
-  //     Map<String, dynamic> paymentData, String endpointId) async {
-  //   try {
-  //     // Update local balance
-  //     await _updateWalletBalance(
-  //       paymentData['amount'].toDouble(),
-  //       paymentData['sender'],
-  //     );
-
-  //     // Send confirmation
-  //     await _nearby.sendBytes(
-  //       endpointId,
-  //       Uint8List.fromList(utf8.encode('CONFIRMED')),
-  //     );
-  //   } catch (e) {
-  //     await _nearby.sendBytes(
-  //       endpointId,
-  //       Uint8List.fromList(utf8.encode('ERROR')),
-  //     );
-  //     throw Exception('Payment processing failed');
-  //   }
-  // }
-
   Future<void> _updateWalletBalance(double amount, String sender) async {
     final prefs = await SharedPreferences.getInstance();
     final userJson = prefs.getString('userData');
@@ -194,17 +153,6 @@ class _ReceivePaymentScreenState extends State<ReceivePaymentScreen> {
     await prefs.setString('userData', jsonEncode(updatedUser.toJson()));
   }
 
-  // void _handleError(String message) {
-  //   setState(() {
-  //     _isReceiving = false;
-  //     _statusMessage = message;
-  //   });
-  //   ScaffoldMessenger.of(context).showSnackBar(
-  //     SnackBar(content: Text(message), backgroundColor: Colors.red),
-  //   );
-  //   _nearby.stopAll();
-  // }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -215,33 +163,72 @@ class _ReceivePaymentScreenState extends State<ReceivePaymentScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            // StreamBuilder<String>(
+            //   stream: nearby.onEndpointDiscovered,
+            //   builder: (context, snapshot) {
+            //     if (snapshot.hasData) {
+            //       final data = snapshot.data!;
+            //       if (data.startsWith('lost:')) {
+            //         return Text('Lost endpoint: ${data.substring(5)}');
+            //       }
+            //       return ListTile(
+            //         title: Text('Discovered endpoint: $data'),
+            //         trailing: ElevatedButton(
+            //           child: const Text('Connect'),
+            //           onPressed: () => nearby.requestConnection(userName, data),
+            //         ),
+            //       );
+            //     }
+            //     return const SizedBox.shrink();
+            //   },
+            // ),
+            // const SizedBox(height: 20),
+            _buildQRCodeSection(),
+            const SizedBox(height: 20),
             StreamBuilder<String>(
               stream: nearby.onEndpointDiscovered,
               builder: (context, snapshot) {
                 if (snapshot.hasData) {
                   final data = snapshot.data!;
                   if (data.startsWith('lost:')) {
-                    return Text('Lost endpoint: ${data.substring(5)}');
+                    return ElevatedButton(
+                      onPressed: () async {
+                        await nearby.stopAll();
+                        await _startPaymentListener();
+                        _setupListeners();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        minimumSize: const Size(double.infinity, 50),
+                      ),
+                      child: const Text(
+                        'Re-Sync',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    );
                   }
-                  return ListTile(
-                    title: Text('Discovered endpoint: $data'),
-                    trailing: ElevatedButton(
-                      child: const Text('Connect'),
-                      onPressed: () => nearby.requestConnection(userName, data),
+
+                  return ElevatedButton(
+                    onPressed: () {
+                      nearby.requestConnection(userName, data);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
+                    child: const Text(
+                      'Accept Payment',
+                      style: TextStyle(color: Colors.white),
                     ),
                   );
                 }
-                return const SizedBox.shrink();
+                return _buildStatusIndicator();
               },
             ),
-            const SizedBox(height: 20),
-            _buildQRCodeSection(),
-            const SizedBox(height: 20),
-            _buildStatusIndicator(),
           ],
         ),
       ),
-      floatingActionButton: _buildSyncButton(),
+      // floatingActionButton: _buildSyncButton(),
     );
   }
 
@@ -314,20 +301,20 @@ class _ReceivePaymentScreenState extends State<ReceivePaymentScreen> {
     );
   }
 
-  Widget _buildSyncButton() {
-    return FloatingActionButton(
-      onPressed: _isReceiving
-          ? null
-          : () async {
-              await _startPaymentListener();
-            },
-      backgroundColor: primaryColor,
-      tooltip: 'Restart Payment Listener',
-      child: _isReceiving
-          ? const CircularProgressIndicator(color: Colors.white)
-          : const Icon(Icons.sync, color: Colors.white),
-    );
-  }
+  // Widget _buildSyncButton() {
+  //   return FloatingActionButton(
+  //     onPressed: _isReceiving
+  //         ? null
+  //         : () async {
+  //             await _startPaymentListener();
+  //           },
+  //     backgroundColor: primaryColor,
+  //     tooltip: 'Restart Payment Listener',
+  //     child: _isReceiving
+  //         ? const CircularProgressIndicator(color: Colors.white)
+  //         : const Icon(Icons.sync, color: Colors.white),
+  //   );
+  // }
 }
 
 class ConnectionDialog extends StatelessWidget {

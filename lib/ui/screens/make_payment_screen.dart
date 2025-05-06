@@ -1,4 +1,3 @@
-// make_payment_screen.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -13,6 +12,7 @@ import 'package:xsaev/core/constants.dart';
 import 'package:xsaev/data/models/transaction.dart';
 import 'package:xsaev/data/models/user.dart';
 import 'package:xsaev/domain/services/nearby_service.dart';
+import 'package:xsaev/ui/screens/home_screen.dart';
 import 'package:xsaev/ui/screens/receive_payment_screen.dart';
 
 class MakePaymentScreen extends StatefulWidget {
@@ -26,18 +26,16 @@ class MakePaymentScreen extends StatefulWidget {
 
 class _MakePaymentScreenState extends State<MakePaymentScreen> {
   final NearbyConnectionsService nearby = NearbyConnectionsService();
-  final String userName = Random().nextInt(10000).toString();
+  String userName = "Payer";
   final Strategy strategy = Strategy.P2P_STAR;
   AppUser? user;
-  bool _isReceiving = false;
-  bool _isProcessing = true;
-
-  String _statusMessage = 'Waiting for payment...';
+  // bool _isProcessing = false;
 
   @override
   void initState() {
     super.initState();
     _loadUser();
+
     _startPaymentListener();
     _setupListeners();
   }
@@ -48,8 +46,8 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
     });
 
     nearby.onConnectionResult.listen((event) {
-      _showSnackbar('Connection ${event.status} with ${event.endpointId}');
-      if (event.status == 'connected') {
+      // _showSnackbar('Connection ${event.status} with ${event.endpointId}');
+      if (event.status == 'CONNECTED') {
         _sendPaymentData(
           widget.details['account'],
           double.parse(widget.details['price'].toString()),
@@ -63,12 +61,12 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
     });
 
     nearby.onPayloadReceived.listen((event) {
-      _showSnackbar('Received from ${event.endpointId}: ${event.data}');
+      // _showSnackbar('Received from ${event.endpointId}: ${event.data}');
     });
 
     nearby.onPayloadTransferUpdate.listen((event) {
       if (event.update.status == PayloadStatus.SUCCESS) {
-        _showSnackbar('Transfer success with ${event.endpointId}');
+        // _showSnackbar('Transfer success with ${event.endpointId}');
       }
     });
   }
@@ -81,9 +79,6 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
         info: info,
         onAccept: () {
           nearby.acceptConnection(endpointId, info);
-          setState(() {
-            _isProcessing = false;
-          });
         },
         onReject: () => Nearby().rejectConnection(endpointId),
       ),
@@ -106,24 +101,24 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
     final prefs = await SharedPreferences.getInstance();
     final userJson = prefs.getString('userData');
     if (userJson != null) {
-      setState(() => user = AppUser.fromJson(jsonDecode(userJson)));
+      setState(() {
+        user = AppUser.fromJson(jsonDecode(userJson));
+        userName = user?.accountNumber ?? Random().nextInt(10000).toString();
+      });
     }
   }
 
   Future<void> _startPaymentListener() async {
-    setState(() {
-      _isProcessing = true;
-    });
+    // setState(() {
+    //   _isProcessing = true;
+    // });
     try {
-      Nearby().stopAdvertising();
-
       await nearby.startAdvertising(userName, strategy);
-      _showSnackbar('Advertising started');
+      // _showSnackbar('Advertising started');
 
       //discovery
-      Nearby().stopDiscovery();
       await nearby.startDiscovery(userName, strategy);
-      _showSnackbar('Discovery started');
+      // _showSnackbar('Discovery started');
     } catch (e) {
       _showSnackbar('Error: $e');
     }
@@ -131,6 +126,9 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
 
   Future<void> _sendPaymentData(String receiverAccount, double amount) async {
     try {
+      // setState(() {
+      //   _isProcessing = true;
+      // });
       final paymentData = {
         'sender': user!.accountNumber,
         'receiver': receiverAccount,
@@ -139,13 +137,34 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
         'item': widget.details['item'],
       };
 
-      _showSnackbar(paymentData.toString());
+      final jsonString = jsonEncode(paymentData);
+      final jsonBytes = Uint8List.fromList(utf8.encode(jsonString));
+
+      // Send to all connected endpoints
+      for (final endpoint in nearby.endpoints.keys) {
+        nearby.sendBytes(endpoint, jsonBytes);
+      }
+
+      await _updateWalletBalance(amount, receiverAccount);
+      _showSnackbar("Payment successful");
+
+      await nearby.stopAll();
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        (Route<dynamic> route) => false, // remove all previous routes
+      );
     } on TimeoutException {
-    } catch (e) {}
+      _showSnackbar("Error...");
+    } catch (e) {
+      _showSnackbar(e.toString());
+    }
   }
 
   Future<void> _updateWalletBalance(
-      double amount, String receiverAccount) async {
+    double amount,
+    String receiverAccount,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     final userJson = prefs.getString('userData');
     if (userJson == null) return;
@@ -181,78 +200,68 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            // StreamBuilder<String>(
+            //   stream: nearby.onEndpointDiscovered,
+            //   builder: (context, snapshot) {
+            //     if (snapshot.hasData) {
+            //       final data = snapshot.data!;
+            //       if (data.startsWith('lost:')) {
+            //         return Text('Lost endpoint: ${data.substring(5)}');
+            //       }
+            //       return ListTile(
+            //         title: Text('Discovered endpoint: $data'),
+            //         trailing: ElevatedButton(
+            //           child: const Text('Connect'),
+            //           onPressed: () => nearby.requestConnection(userName, data),
+            //         ),
+            //       );
+            //     }
+            //     return const SizedBox.shrink();
+            //   },
+            // ),
+            // const SizedBox(height: 20),
+            _buildQRCodeSection(),
+            const SizedBox(height: 20),
             StreamBuilder<String>(
               stream: nearby.onEndpointDiscovered,
               builder: (context, snapshot) {
                 if (snapshot.hasData) {
                   final data = snapshot.data!;
                   if (data.startsWith('lost:')) {
-                    return Text('Lost endpoint: ${data.substring(5)}');
+                    return ElevatedButton(
+                      onPressed: () async {
+                        await nearby.stopAll();
+                        await _startPaymentListener();
+                        _setupListeners();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        minimumSize: const Size(double.infinity, 50),
+                      ),
+                      child: const Text(
+                        'Restart Payment',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    );
                   }
-                  return ListTile(
-                    title: Text('Discovered endpoint: $data'),
-                    trailing: ElevatedButton(
-                      child: const Text('Connect'),
-                      onPressed: () => nearby.requestConnection(userName, data),
+
+                  return ElevatedButton(
+                    onPressed: () {
+                      nearby.requestConnection(userName, data);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
+                    child: const Text(
+                      'Confirm Payment',
+                      style: TextStyle(color: Colors.white),
                     ),
                   );
                 }
                 return const SizedBox.shrink();
               },
             ),
-            const SizedBox(height: 20),
-            _buildQRCodeSection(),
-            const SizedBox(height: 20),
-            StreamBuilder<String>(
-                stream: nearby.onEndpointDiscovered,
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    final data = snapshot.data!;
-                    if (data.startsWith('lost:')) {
-                      return ElevatedButton(
-                        onPressed: () async {
-                          await nearby.stopAll();
-                          await _startPaymentListener();
-                          _setupListeners();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryColor,
-                          minimumSize: const Size(double.infinity, 50),
-                        ),
-                        child: const Text(
-                          'Restart Payment',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      );
-                    }
-
-                    return ElevatedButton(
-                      onPressed: _isProcessing || user == null
-                          ? null
-                          : () {
-                              nearby.requestConnection(userName, data);
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        minimumSize: const Size(double.infinity, 50),
-                      ),
-                      child: _isProcessing
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Confirm Payment',
-                              style: TextStyle(color: Colors.white)),
-                    );
-                  }
-                  return ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      minimumSize: const Size(double.infinity, 50),
-                    ),
-                    child: const CircularProgressIndicator(
-                      color: Colors.white,
-                    ),
-                  );
-                }),
           ],
         ),
       ),
